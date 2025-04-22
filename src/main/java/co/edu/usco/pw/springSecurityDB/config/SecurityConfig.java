@@ -1,5 +1,6 @@
 package co.edu.usco.pw.springSecurityDB.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,6 +20,9 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
 	private final UserDetailsServiceImpl userDetailsService;
+
+	@Autowired
+	private CustomLoginSuccessHandler successHandler;
 
 	@Bean
 	public BCryptPasswordEncoder passwordEncoder() {
@@ -40,12 +44,33 @@ public class SecurityConfig {
 
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
+
 		http.csrf(csrf -> csrf.disable())
-				.authorizeHttpRequests(auth -> auth.requestMatchers("/public/**").permitAll()
-						.requestMatchers("/user/**").hasRole("USER").requestMatchers("/admin/**").hasRole("ADMIN")
+				.authorizeHttpRequests(auth -> auth
+						.requestMatchers("/", "/login", "/api/registrar", "/debug/user/{username}", "/css/**", "/static/**", "/js/**", "/images/**").permitAll() 	// permite el acceso libre a estas rutas
+						.requestMatchers("/user/**").hasRole("USER")
+						.requestMatchers("/admin/**").hasRole("ADMIN")
+						.requestMatchers("/editor/**").hasRole("EDITOR")
+						.requestMatchers("/creator/**").hasRole("CREATOR")
+						//.requestMatchers("/").hasAnyAuthority("USER", "CREATOR", "EDITOR", "ADMIN")
+						.requestMatchers("/new/**").hasAnyRole("ADMIN", "CREATOR")
+						.requestMatchers("/edit/**").hasAnyRole("ADMIN", "EDITOR")
+						.requestMatchers("/delete/**").hasRole("ADMIN")
 						.anyRequest().authenticated())
-				.formLogin(form -> form.permitAll()).logout(logout -> logout.permitAll());
+						.formLogin(form -> form
+								.loginPage("/login")
+								.failureUrl("/login?error")
+								.successHandler(successHandler)	// aquí usamos tu handler personalizado
+								.permitAll())
+						.logout(logout -> logout.permitAll())
+						.exceptionHandling(ex -> ex
+								.accessDeniedPage("/403"))
+
+						.authenticationProvider(authenticationProvider()); // authenticationProvider
+
 
 		return http.build();
 	}
+
 }
